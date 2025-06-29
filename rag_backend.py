@@ -55,7 +55,7 @@ class RAGApplication:
                 
             self.llm = ChatGroq(
                 groq_api_key=groq_api_key,
-                model_name="mixtral-8x7b-32768",  # Fast and capable model
+                model_name="mistral-saba-24b",  # Fast and capable model
                 temperature=0.1,
                 max_tokens=1024
             )

@@ -89,7 +89,7 @@ with st.sidebar:
     # Model selection
     model_choice = st.selectbox(
         "Choose Model",
-        ["mixtral-8x7b-32768", "llama2-70b-4096", "gemma-7b-it"],
+        ["mistral-saba-24b", "llama2-70b-4096", "gemma-7b-it"],
         help="Select the LLM model for generation"
     )
     

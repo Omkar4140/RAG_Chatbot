@@ -157,34 +157,36 @@ with col1:
                             </div>
                             """, unsafe_allow_html=True)
         
-        # Chat input
-        user_question = st.text_input(
-            "Ask a question about your documents:",
-            placeholder="e.g., What is the main topic of the uploaded documents?",
-            key="user_input"
-        )
+        # Chat input form
+        with st.form(key="chat_form", clear_on_submit=True):
+            user_question = st.text_input(
+                "Ask a question about your documents:",
+                placeholder="e.g., What is the main topic of the uploaded documents?",
+                key="user_input"
+            )
+            submit_button = st.form_submit_button("Send", type="primary")
         
-        if st.button("Send", type="primary") or user_question:
-            if user_question.strip():
-                # Add user message to history
-                st.session_state.chat_history.append(("user", user_question, []))
-                
-                # Get response
-                with st.spinner("🤔 Thinking..."):
-                    response = st.session_state.rag_app.get_answer(user_question)
-                
-                if "error" in response:
-                    bot_message = f"❌ {response['error']}"
-                    sources = []
-                else:
-                    bot_message = response["answer"]
-                    sources = response.get("source_documents", [])
-                
-                # Add bot response to history
-                st.session_state.chat_history.append(("bot", bot_message, sources))
-                
-                # Clear input and rerun
-                st.rerun()
+        # Process the query when form is submitted
+        if submit_button and user_question.strip():
+            # Add user message to history
+            st.session_state.chat_history.append(("user", user_question, []))
+            
+            # Get response
+            with st.spinner("🤔 Thinking..."):
+                response = st.session_state.rag_app.get_answer(user_question)
+            
+            if "error" in response:
+                bot_message = f"❌ {response['error']}"
+                sources = []
+            else:
+                bot_message = response["answer"]
+                sources = response.get("source_documents", [])
+            
+            # Add bot response to history
+            st.session_state.chat_history.append(("bot", bot_message, sources))
+            
+            # Rerun to display the new messages
+            st.rerun()
 
 with col2:
     st.header("📊 Information")

@@ -1,11 +1,10 @@
 import streamlit as st
 import os
-from rag_backend import RAGApplication, SAMPLE_DOCUMENTS
-import tempfile
+from rag_backend import RAGApplication
 
 # Page configuration
 st.set_page_config(
-    page_title="Enterprise RAG Chatbot",
+    page_title="RAG Chatbot",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -60,7 +59,7 @@ if 'documents_processed' not in st.session_state:
 # Header
 st.markdown("""
 <div class="main-header">
-    <h1>🤖 Enterprise RAG Chatbot</h1>
+    <h1>🤖 RAG Chatbot</h1>
     <p style="color: white; text-align: center; margin: 0;">
         Intelligent Assistant for Internal Knowledge Base
     </p>
@@ -86,61 +85,8 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Model selection
-    model_choice = st.selectbox(
-        "Choose Model",
-        ["mistral-saba-24b", "llama2-70b-4096", "gemma-7b-it"],
-        help="Select the LLM model for generation"
-    )
-    
-    # Update model if changed
-    if hasattr(st.session_state.rag_app, 'llm') and st.session_state.rag_app.llm:
-        st.session_state.rag_app.llm.model_name = model_choice
-    
-    st.markdown("---")
-    
     # Document upload section
     st.header("📁 Document Upload")
-    
-    # Sample documents option
-    use_sample = st.checkbox("Use Sample Documents", help="Use pre-loaded sample company documents")
-    
-    if use_sample:
-        if st.button("Load Sample Documents"):
-            if groq_api_key:
-                with st.spinner("Processing sample documents..."):
-                    # Create temporary files from sample documents
-                    temp_files = []
-                    for title, content in SAMPLE_DOCUMENTS.items():
-                        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
-                        temp_file.write(content)
-                        temp_file.close()
-                        temp_files.append(temp_file.name)
-                    
-                    # Process documents
-                    class MockFile:
-                        def __init__(self, name, content):
-                            self.name = name
-                            self.content = content
-                        def getvalue(self):
-                            return self.content.encode()
-                    
-                    mock_files = [MockFile(f"{title}.txt", content) for title, content in SAMPLE_DOCUMENTS.items()]
-                    
-                    if st.session_state.rag_app.process_documents(mock_files):
-                        st.session_state.documents_processed = True
-                        st.success("✅ Sample documents processed successfully!")
-                    else:
-                        st.error("❌ Failed to process sample documents")
-                    
-                    # Clean up temp files
-                    for temp_file in temp_files:
-                        try:
-                            os.unlink(temp_file)
-                        except:
-                            pass
-            else:
-                st.error("Please enter your Groq API Key first")
     
     # File upload
     uploaded_files = st.file_uploader(
@@ -182,7 +128,7 @@ with col1:
     if not groq_api_key:
         st.info("👈 Please enter your Groq API Key in the sidebar to get started")
     elif not st.session_state.documents_processed:
-        st.info("👈 Please upload and process documents or use sample documents to start chatting")
+        st.info("👈 Please upload and process documents to start chatting")
     else:
         # Chat interface
         # Display chat history
@@ -214,7 +160,7 @@ with col1:
         # Chat input
         user_question = st.text_input(
             "Ask a question about your documents:",
-            placeholder="e.g., What is the company's leave policy?",
+            placeholder="e.g., What is the main topic of the uploaded documents?",
             key="user_input"
         )
         
@@ -249,7 +195,7 @@ with col2:
     status_items = [
         ("API Key", "✅ Configured" if groq_api_key else "❌ Not configured"),
         ("Documents", "✅ Processed" if st.session_state.documents_processed else "❌ Not processed"),
-        ("Model", f"🤖 {model_choice}" if groq_api_key else "❌ Not available"),
+        ("Model", "🤖 Mixtral-8x7B" if groq_api_key else "❌ Not available"),
         ("Chat History", f"💬 {len(st.session_state.chat_history)} messages")
     ]
     
@@ -263,9 +209,9 @@ with col2:
     tips = [
         "Upload multiple documents for better coverage",
         "Ask specific questions for better answers",
-        "Use sample documents to test the system",
         "Check source documents for context",
-        "Clear chat history to start fresh"
+        "Clear chat history to start fresh",
+        "Supported formats: PDF, TXT, CSV, DOC, DOCX"
     ]
     
     for tip in tips:
@@ -277,13 +223,13 @@ with col2:
     st.subheader("ℹ️ About")
     st.write("""
     This RAG (Retrieval-Augmented Generation) chatbot helps you find information 
-    from your internal documents quickly and accurately.
+    from your uploaded documents quickly and accurately.
     
     **Features:**
     - Multi-format document support
     - Contextual compression
     - Source document references
-    - Free Groq API integration
+    - Mixtral-8x7B model via Groq API
     """)
 
 # Footer

@@ -7,7 +7,6 @@ from io import StringIO
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import pickle
 
 # Document processing
 from langchain.document_loaders import (
@@ -19,12 +18,14 @@ from langchain.document_loaders import (
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
-# Embeddings and Vector Store - Using TF-IDF instead of HuggingFace
+# Embeddings and Vector Store
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings.base import Embeddings
 
-# LLM and Retrieval
+# Multiple LLM providers
 from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI as OpenRouterChat
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 
@@ -32,7 +33,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class TFIDFEmbeddings(Embeddings):
-    """Custom TF-IDF based embeddings to avoid HuggingFace rate limiting"""
+    """Simple TF-IDF based embeddings"""
     
     def __init__(self):
         self.vectorizer = TfidfVectorizer(
@@ -43,58 +44,61 @@ class TFIDFEmbeddings(Embeddings):
         self.fitted = False
         
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Embed a list of documents"""
         if not self.fitted:
-            # Fit the vectorizer on the first batch of documents
             self.vectorizer.fit(texts)
             self.fitted = True
         
-        # Transform texts to TF-IDF vectors
         tfidf_matrix = self.vectorizer.transform(texts)
-        
-        # Convert to dense arrays and return as list of lists
         return tfidf_matrix.toarray().tolist()
     
     def embed_query(self, text: str) -> List[float]:
-        """Embed a single query"""
         if not self.fitted:
-            # If not fitted, return zeros (this shouldn't happen in normal flow)
             return [0.0] * 1000
         
-        # Transform the query
         query_vector = self.vectorizer.transform([text])
         return query_vector.toarray()[0].tolist()
 
 class RAGApplication:
     def __init__(self):
-        self.embeddings = None
+        self.embeddings = TFIDFEmbeddings()
         self.vectorstore = None
         self.retriever = None
         self.llm = None
         self.qa_chain = None
-        self.setup_components()
+        self.api_provider = None
     
-    def setup_components(self):
-        """Initialize embeddings and LLM"""
+    def setup_llm(self, provider: str, api_key: str, model: str) -> bool:
+        """Setup LLM based on provider"""
         try:
-            # Initialize TF-IDF embeddings (no external API calls)
-            self.embeddings = TFIDFEmbeddings()
+            if provider == "Groq":
+                self.llm = ChatGroq(
+                    groq_api_key=api_key,
+                    model_name=model,
+                    temperature=0.1,
+                    max_tokens=1024
+                )
+            elif provider == "OpenAI":
+                self.llm = ChatOpenAI(
+                    openai_api_key=api_key,
+                    model_name=model,
+                    temperature=0.1,
+                    max_tokens=1024
+                )
+            elif provider == "OpenRouter":
+                self.llm = OpenRouterChat(
+                    openai_api_key=api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    model_name=model,
+                    temperature=0.1,
+                    max_tokens=1024
+                )
             
-            # Initialize Groq LLM with Mixtral model only
-            groq_api_key = os.getenv("GROQ_API_KEY")
-            if not groq_api_key:
-                st.error("Please set your GROQ_API_KEY in the environment variables")
-                return
-                
-            self.llm = ChatGroq(
-                groq_api_key=groq_api_key,
-                model_name="mistral-saba-24b",  # Only Mixtral model
-                temperature=0.1,
-                max_tokens=1024
-            )
+            self.api_provider = f"{provider} ({model})"
+            return True
             
         except Exception as e:
-            st.error(f"Error initializing components: {str(e)}")
+            st.error(f"Error setting up {provider}: {str(e)}")
+            return False
     
     def load_documents(self, uploaded_files) -> List[Document]:
         """Load documents from uploaded files"""
@@ -102,12 +106,10 @@ class RAGApplication:
         
         for uploaded_file in uploaded_files:
             try:
-                # Create temporary file
                 with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
                     tmp_file.write(uploaded_file.getvalue())
                     tmp_file_path = tmp_file.name
                 
-                # Load based on file type
                 file_extension = uploaded_file.name.split('.')[-1].lower()
                 
                 if file_extension == 'pdf':
@@ -119,16 +121,13 @@ class RAGApplication:
                 elif file_extension in ['doc', 'docx']:
                     loader = UnstructuredWordDocumentLoader(tmp_file_path)
                 else:
-                    st.warning(f"Unsupported file type: {file_extension}")
                     continue
                 
                 docs = loader.load()
-                # Add source metadata
                 for doc in docs:
                     doc.metadata['source'] = uploaded_file.name
                 documents.extend(docs)
                 
-                # Clean up temp file
                 os.unlink(tmp_file_path)
                 
             except Exception as e:
@@ -141,52 +140,41 @@ class RAGApplication:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
-            length_function=len,
-            separators=["\n\n", "\n", " ", ""]
+            length_function=len
         )
         
-        chunks = text_splitter.split_documents(documents)
-        return chunks
+        return text_splitter.split_documents(documents)
     
     def create_vectorstore(self, documents: List[Document]):
-        """Create FAISS vector store from documents"""
+        """Create FAISS vector store"""
         try:
             if not documents:
-                st.error("No documents to process")
-                return
+                return False
             
-            # Create vector store with TF-IDF embeddings
             self.vectorstore = FAISS.from_documents(documents, self.embeddings)
-            
-            # Create retriever
             self.retriever = self.vectorstore.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": 5}
             )
             
-            st.success(f"Vector store created with {len(documents)} document chunks")
+            return True
             
         except Exception as e:
             st.error(f"Error creating vector store: {str(e)}")
+            return False
     
     def setup_qa_chain(self):
-        """Setup the QA chain with custom prompt"""
-        if not self.retriever:
-            st.error("Please upload and process documents first")
-            return
+        """Setup QA chain"""
+        if not self.retriever or not self.llm:
+            return False
         
-        # Custom prompt template
         prompt_template = """
-        You are an intelligent assistant for an internal company knowledge base. 
-        Use the following context to answer the question. If you don't find the answer in the context, 
-        say "I don't have enough information to answer this question based on the provided documents."
-        
-        Be concise, accurate, and helpful. If the question is unclear, ask for clarification.
+        You are an intelligent assistant. Use the following context to answer the question.
+        If you don't find the answer in the context, say "I don't have enough information 
+        to answer this question based on the provided documents."
         
         Context: {context}
-        
         Question: {question}
-        
         Answer:
         """
         
@@ -195,7 +183,6 @@ class RAGApplication:
             input_variables=["context", "question"]
         )
         
-        # Create QA chain
         self.qa_chain = RetrievalQA.from_chain_type(
             llm=self.llm,
             chain_type="stuff",
@@ -203,11 +190,13 @@ class RAGApplication:
             chain_type_kwargs={"prompt": PROMPT},
             return_source_documents=True
         )
+        
+        return True
     
     def get_answer(self, question: str) -> Dict[str, Any]:
         """Get answer for a question"""
         if not self.qa_chain:
-            return {"error": "Please upload and process documents first"}
+            return {"error": "Please configure API and process documents first"}
         
         try:
             result = self.qa_chain({"query": question})
@@ -220,26 +209,18 @@ class RAGApplication:
         except Exception as e:
             return {"error": f"Error generating answer: {str(e)}"}
     
-    def process_documents(self, uploaded_files):
-        """Complete document processing pipeline"""
+    def process_documents(self, uploaded_files) -> bool:
+        """Process documents pipeline"""
         if not uploaded_files:
-            st.error("No files uploaded")
             return False
             
-        with st.spinner("Loading documents..."):
-            documents = self.load_documents(uploaded_files)
-        
+        documents = self.load_documents(uploaded_files)
         if not documents:
-            st.error("No documents were successfully loaded")
             return False
         
-        with st.spinner("Chunking documents..."):
-            chunks = self.chunk_documents(documents)
+        chunks = self.chunk_documents(documents)
         
-        with st.spinner("Creating vector store..."):
-            self.create_vectorstore(chunks)
+        if not self.create_vectorstore(chunks):
+            return False
         
-        with st.spinner("Setting up QA chain..."):
-            self.setup_qa_chain()
-        
-        return True
+        return self.setup_qa_chain()

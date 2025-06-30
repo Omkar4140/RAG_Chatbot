@@ -4,6 +4,10 @@ import streamlit as st
 from typing import List, Dict, Any
 import pandas as pd
 from io import StringIO
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import pickle
 
 # Document processing
 from langchain.document_loaders import (
@@ -15,19 +19,51 @@ from langchain.document_loaders import (
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 
-# Embeddings and Vector Store
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# Embeddings and Vector Store - Using TF-IDF instead of HuggingFace
 from langchain_community.vectorstores import FAISS
+from langchain.embeddings.base import Embeddings
 
 # LLM and Retrieval
 from langchain_groq import ChatGroq
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
 
 import warnings
 warnings.filterwarnings("ignore")
+
+class TFIDFEmbeddings(Embeddings):
+    """Custom TF-IDF based embeddings to avoid HuggingFace rate limiting"""
+    
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(
+            max_features=1000,
+            stop_words='english',
+            ngram_range=(1, 2)
+        )
+        self.fitted = False
+        
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embed a list of documents"""
+        if not self.fitted:
+            # Fit the vectorizer on the first batch of documents
+            self.vectorizer.fit(texts)
+            self.fitted = True
+        
+        # Transform texts to TF-IDF vectors
+        tfidf_matrix = self.vectorizer.transform(texts)
+        
+        # Convert to dense arrays and return as list of lists
+        return tfidf_matrix.toarray().tolist()
+    
+    def embed_query(self, text: str) -> List[float]:
+        """Embed a single query"""
+        if not self.fitted:
+            # If not fitted, return zeros (this shouldn't happen in normal flow)
+            return [0.0] * 1000
+        
+        # Transform the query
+        query_vector = self.vectorizer.transform([text])
+        return query_vector.toarray()[0].tolist()
 
 class RAGApplication:
     def __init__(self):
@@ -41,13 +77,10 @@ class RAGApplication:
     def setup_components(self):
         """Initialize embeddings and LLM"""
         try:
-            # Initialize embeddings (free and efficient)
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'}
-            )
+            # Initialize TF-IDF embeddings (no external API calls)
+            self.embeddings = TFIDFEmbeddings()
             
-            # Initialize Groq LLM
+            # Initialize Groq LLM with Mixtral model only
             groq_api_key = os.getenv("GROQ_API_KEY")
             if not groq_api_key:
                 st.error("Please set your GROQ_API_KEY in the environment variables")
@@ -55,7 +88,7 @@ class RAGApplication:
                 
             self.llm = ChatGroq(
                 groq_api_key=groq_api_key,
-                model_name="mistral-saba-24b",  # Fast and capable model
+                model_name="mixtral-8x7b-32768",  # Only Mixtral model
                 temperature=0.1,
                 max_tokens=1024
             )
@@ -90,6 +123,9 @@ class RAGApplication:
                     continue
                 
                 docs = loader.load()
+                # Add source metadata
+                for doc in docs:
+                    doc.metadata['source'] = uploaded_file.name
                 documents.extend(docs)
                 
                 # Clean up temp file
@@ -119,20 +155,13 @@ class RAGApplication:
                 st.error("No documents to process")
                 return
             
-            # Create vector store
+            # Create vector store with TF-IDF embeddings
             self.vectorstore = FAISS.from_documents(documents, self.embeddings)
             
             # Create retriever
             self.retriever = self.vectorstore.as_retriever(
                 search_type="similarity",
                 search_kwargs={"k": 5}
-            )
-            
-            # Create contextual compression retriever for better results
-            compressor = LLMChainExtractor.from_llm(self.llm)
-            self.compression_retriever = ContextualCompressionRetriever(
-                base_compressor=compressor,
-                base_retriever=self.retriever
             )
             
             st.success(f"Vector store created with {len(documents)} document chunks")
@@ -142,7 +171,7 @@ class RAGApplication:
     
     def setup_qa_chain(self):
         """Setup the QA chain with custom prompt"""
-        if not self.compression_retriever:
+        if not self.retriever:
             st.error("Please upload and process documents first")
             return
         
@@ -170,7 +199,7 @@ class RAGApplication:
         self.qa_chain = RetrievalQA.from_chain_type(
             llm=self.llm,
             chain_type="stuff",
-            retriever=self.compression_retriever,
+            retriever=self.retriever,
             chain_type_kwargs={"prompt": PROMPT},
             return_source_documents=True
         )
@@ -193,6 +222,10 @@ class RAGApplication:
     
     def process_documents(self, uploaded_files):
         """Complete document processing pipeline"""
+        if not uploaded_files:
+            st.error("No files uploaded")
+            return False
+            
         with st.spinner("Loading documents..."):
             documents = self.load_documents(uploaded_files)
         
@@ -210,37 +243,3 @@ class RAGApplication:
             self.setup_qa_chain()
         
         return True
-
-# Sample document content for testing
-SAMPLE_DOCUMENTS = {
-    "Company Policy": """
-    Company Leave Policy
-    
-    Annual Leave: All employees are entitled to 25 days of annual leave per year.
-    Sick Leave: Employees can take up to 10 days of sick leave per year with medical certificate.
-    Maternity Leave: 16 weeks of paid maternity leave is provided.
-    Remote Work: Employees can work remotely up to 3 days per week with manager approval.
-    """,
-    
-    "IT Guidelines": """
-    IT Security Guidelines
-    
-    Password Policy: Passwords must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters.
-    VPN Access: All remote connections must use the company VPN.
-    Software Installation: Only approved software can be installed on company devices.
-    Data Backup: All important data must be backed up daily to the cloud storage.
-    """,
-    
-    "HR FAQ": """
-    Frequently Asked Questions - HR
-    
-    Q: How do I request time off?
-    A: Submit a request through the employee portal at least 2 weeks in advance.
-    
-    Q: What is the dress code?
-    A: Business casual is required for office days, casual attire is acceptable for remote work.
-    
-    Q: How do I report an issue with my manager?
-    A: Contact HR directly at hr@company.com or use the anonymous reporting system.
-    """
-}

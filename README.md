@@ -3,26 +3,31 @@
 A Retrieval-Augmented Generation (RAG) chatbot for answering questions from uploaded documents using advanced LLMs.
 
 📌 Overview
-This Streamlit-based RAG chatbot allows users to upload documents and ask questions in natural language. It retrieves the most relevant information using semantic embeddings and generates precise, source-aware answers using LLMs such as OpenAI, Groq, or OpenRouter.
+This Streamlit-based RAG chatbot allows users to upload documents and ask questions in natural language. 
+It retrieves the most relevant information using semantic embeddings and generates precise, source-aware answers using LLMs such as OpenAI, Groq, or OpenRouter.
 
-🔹 Multi-format support
+🔹 Multi-format support.
+
 🔹 Semantic search using embeddings
+
 🔹 Source document referencing
+
 🔹 API-switchable LLM integration
+
 🔹 Session memory & confidence scoring
+
 🔹 Real-time web UI + export features
 
 🚀 Live Demo
 🔗 Web App: https://ragchatbotassignment.streamlit.app
+
 📦 GitHub Repo: https://github.com/Omkar4140/RAG_Chatbot
 
 🧠 Architecture
-mathematica
-Copy
-Edit
 User Query ─► Embed ─► Retrieve Top-k Chunks ─► Prompt LLM ─► Generate Answer ─► Show Sources
                              ▲                                     │
                      FAISS Vector Store                     OpenAI / Groq / OpenRouter
+
 🗂️ Features
 ✅ Upload PDFs, DOCX, TXT, CSV files
 
@@ -50,48 +55,50 @@ Source references
 
 🛠️ Setup Instructions
 🔧 1. Clone the Repo
-bash
-Copy
-Edit
+
 git clone https://github.com/Omkar4140/RAG_Chatbot.git
+
 cd RAG_Chatbot
+
 📦 2. Create Environment & Install Dependencies
-bash
-Copy
-Edit
+
 pip install -r requirements.txt
+
 🔑 3. Add API Keys
 Create a .streamlit/secrets.toml file:
 
-toml
-Copy
-Edit
 GROQ_API_KEY = "your_groq_key"
+
 OPENAI_API_KEY = "your_openai_key"
+
 OPENROUTER_API_KEY = "your_openrouter_key"
+
 ▶️ 4. Run the App
-bash
-Copy
-Edit
+
 streamlit run app.py
+
 🧪 Sample Use Cases
 Query	Expected Response
 "What is the leave policy?"	Shows leave info from HR PDF
+
 "How to request IT help?"	Gives support contact from IT SOP
+
 "When is the deadline for appraisal?"	Returns from HR calendar file
+
 "What are the rules for remote work?"	Extracts policy document clause
 
+
 📁 Folder Structure
-bash
-Copy
-Edit
+
 .
 ├── app.py               # Streamlit frontend
 ├── rag_backend.py       # Core logic: ingest, embeddings, retrieval, QA
 ├── requirements.txt     # Python dependencies
 ├── vector_store/        # FAISS persistent store (auto-created)
 └── .streamlit/secrets.toml  # API keys (user-provided)
+
 🧩 Future Enhancements
+
  Sentence-BERT or OpenAI embeddings
 
  ChromaDB / PGVector for persistent scalable storage
@@ -104,7 +111,5 @@ Edit
 
  Streamlit Lite mobile optimization
 
-👨‍💻 Author
-Omkar Lokhande
-GitHub Profile
+
 

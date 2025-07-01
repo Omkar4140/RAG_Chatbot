@@ -202,7 +202,7 @@ with right_col:
             value=st.secrets.get("GROQ_API_KEY", ""),
             help="Get free key from console.groq.com"
         )
-        model_options = ["mixtral-8x7b-32768", "llama2-70b-4096", "gemma-7b-it", "meta-llama/llama-4-scout-17b-16e-instruct"]
+        model_options = ["mistral-saba-24b", "llama3-70b-8192", "gemma2-9b-it", "meta-llama/llama-4-scout-17b-16e-instruct"]
     elif api_provider == "OpenAI":
         api_key = st.text_input(
             "OpenAI API Key",

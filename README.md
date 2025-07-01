@@ -4,7 +4,6 @@ A Retrieval-Augmented Generation (RAG) chatbot for answering questions from uplo
 
 📌 Overview
 This Streamlit-based RAG chatbot allows users to upload documents and ask questions in natural language. 
-
 It retrieves the most relevant information using semantic embeddings and generates precise, source-aware answers using LLMs such as OpenAI, Groq, or OpenRouter.
 
 🔹 Multi-format support.

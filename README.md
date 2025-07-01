@@ -48,11 +48,6 @@ Configuration panel
 
 Source references
 
-✅ Confidence scoring based on lexical overlap
-
-✅ Memory: Retains last 5 exchanges (LangChain buffer)
-
-✅ Export chat or document stats as JSON
 
 🛠️ Setup Instructions
 

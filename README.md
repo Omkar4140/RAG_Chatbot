@@ -24,6 +24,7 @@ It retrieves the most relevant information using semantic embeddings and generat
 📦 GitHub Repo: https://github.com/Omkar4140/RAG_Chatbot
 
 🧠 Architecture
+
 User Query ─► Embed ─► Retrieve Top-k Chunks ─► Prompt LLM ─► Generate Answer ─► Show Sources
                    
 
@@ -54,6 +55,7 @@ Source references
 ✅ Export chat or document stats as JSON
 
 🛠️ Setup Instructions
+
 🔧 1. Clone the Repo
 
 git clone https://github.com/Omkar4140/RAG_Chatbot.git
@@ -78,6 +80,7 @@ OPENROUTER_API_KEY = "your_openrouter_key"
 streamlit run app.py
 
 🧪 Sample Use Cases
+
 Query	Expected Response
 "What is the leave policy?"	Shows leave info from HR PDF
 

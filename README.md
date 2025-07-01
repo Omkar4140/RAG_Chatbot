@@ -28,6 +28,7 @@ User Query ─► Embed ─► Retrieve Top-k Chunks ─► Prompt LLM ─► Ge
                    
 
 🗂️ Features
+
 ✅ Upload PDFs, DOCX, TXT, CSV files
 
 ✅ Chunking with overlap (preserves context)
@@ -86,15 +87,6 @@ Query	Expected Response
 
 "What are the rules for remote work?"	Extracts policy document clause
 
-
-📁 Folder Structure
-
-.
-├── app.py               # Streamlit frontend
-├── rag_backend.py       # Core logic: ingest, embeddings, retrieval, QA
-├── requirements.txt     # Python dependencies
-├── vector_store/        # FAISS persistent store (auto-created)
-└── .streamlit/secrets.toml  # API keys (user-provided)
 
 🧩 Future Enhancements
 
